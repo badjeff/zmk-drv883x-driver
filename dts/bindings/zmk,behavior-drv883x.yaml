@@ -1,0 +1,16 @@
+description: HID IO key press behavior
+
+compatible: "zmk,behavior-drv883x"
+
+include: two_param.yaml
+
+properties:
+  drv883x-dev:
+    type: phandle
+    required: true
+  vel-neutral:
+    type: int
+    default: 128
+  vel-min-max:
+    type: int
+    default: 128

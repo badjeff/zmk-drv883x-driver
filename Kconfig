@@ -1,0 +1,24 @@
+# Copyright (c) 2024 The ZMK Contributors
+# SPDX-License-Identifier: MIT
+
+DT_COMPAT_DRV883X := ti,drv883x
+
+config DRV883X
+  bool "DRV883X haptic motor driver"
+  default $(dt_compat_enabled,$(DT_COMPAT_DRV883X))
+  select I2C
+  help
+      Enable DRV883X haptic motor driver.
+
+if DRV883X
+
+DT_COMPAT_ZMK_BEHAVIOR_DRV883X := zmk,behavior-drv883x
+config ZMK_BEHAVIOR_DRV883X
+    bool
+    default $(dt_compat_enabled,$(DT_COMPAT_ZMK_BEHAVIOR_DRV883X))
+
+module = DRV883X
+module-str = DRV883X
+source "${ZEPHYR_BASE}/subsys/logging/Kconfig.template.log_config"
+
+endif #DRV883X

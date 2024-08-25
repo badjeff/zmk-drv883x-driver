@@ -1,0 +1,8 @@
+/ {
+    behaviors {
+        /omit-if-no-ref/ drv883x: drv883x {
+            compatible = "zmk,behavior-drv883x";
+            #binding-cells = <2>;
+        };
+    };
+};
