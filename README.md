@@ -27,21 +27,20 @@ Update `board.overlay` adding the necessary bits (update the pins for your board
 
 ```dts
 /{
-    /* setup the gpios to operate drv883x */
+  /* setup the gpios to operate drv883x */
   drv883x_0: drv883x {
     compatible = "ti,drv883x";
 
     enable-gpios = <&zero_header 0 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
 
-    /* map PWM gpios to IN1/2 pin on drv883x */
-    /* set N in <&pwm N ...>, where N is refering to group<N> from above &pinctrl */
-    /* PWM_DT_SPEC_GET_BY_IDX should assign pwm1/2 by the index of array */
+    /* map PWM gpios to IN1/2 and IN3/4 pins on drv883x */
+    /* IN1/2 shall be controlled via behavior param1 0 in 'zmk,behavior-drv883x' */
+    /* IN3/4 shall be controlled via behavior param1 1 in 'zmk,behavior-drv883x' if defined */
     pwms = <&pwm 1 PWM_MSEC(20) PWM_POLARITY_NORMAL>
-         , <&pwm 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>;
-
-    /* either use plain gpios if always run at full speed */
-    // in1-gpios = <&zero_header 1 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
-    // in2-gpios = <&zero_header 2 (GPIO_ACTIVE_HIGH | GPIO_PULL_DOWN)>;
+         , <&pwm 2 PWM_MSEC(20) PWM_POLARITY_NORMAL>
+         //  , <&pwm 3 PWM_MSEC(20) PWM_POLARITY_NORMAL>
+         //  , <&pwm 4 PWM_MSEC(20) PWM_POLARITY_NORMAL>
+         ;
   };
 };
 ```
@@ -61,12 +60,8 @@ Update `board.keymap` for key press behavior:
         /* define velocity scope of param2, e.g. range of 265, 128 as neutral point */
         vel-neutral = <128>;
         vel-min-max = <128>;
-        // param1: channel = < 0 = PWM1/2 or IN1/2, 1 = PWM3/4 & IN3/4 >
+        // param1: channel = < 0 = IN1/2, 1 = IN3/4 >
         // param2: velocity = < min ... neutral ... max >
-
-        //*** NOTE ***
-        // Currently `param1` has no effect, defineing one more "ti,drv883x" device
-        // for IN3/4 will workaround.
     };
 
     keymap {

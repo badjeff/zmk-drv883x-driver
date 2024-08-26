@@ -35,15 +35,8 @@ struct drv883x_data {
 struct drv883x_config {
     bool has_enable;
     const struct gpio_dt_spec enable;
-
-    bool has_pwms;
-    struct pwm_dt_spec pwm1;
-    struct pwm_dt_spec pwm2;
-
-    bool has_in1;
-    const struct gpio_dt_spec in1;
-    bool has_in2;
-    const struct gpio_dt_spec in2;
+    size_t pwms_len;
+    struct pwm_dt_spec pwms[];
 };
 
 static int enable_set_value(const struct device *dev, uint8_t value) {
@@ -74,7 +67,7 @@ static int pwm_set_value(struct pwm_dt_spec pwm, uint8_t value) {
         // pwm_set(spec->dev, spec->channel, period, pulse, spec->flags);
     }
     else {
-        LOG_DBG("unset pwm: chan %d", pwm.channel);
+        LOG_DBG("set pwm: chan %d val %d", pwm.channel, value);
         pwm_set_dt(&pwm, period, 0);
     }
     return 0;
@@ -104,30 +97,21 @@ static int sync_set_value(const struct device *dev, uint16_t chan) {
         in1 = 0;
         in2 = data->velocity;
     }
-    LOG_DBG("sync input: %d / %d", in1, in2);
+    LOG_DBG("sync input: %d, %d", in1, in2);
 
-    if (config->has_pwms) {
-        if (pwm_set_value(config->pwm1, in1)) {
-            LOG_WRN("Failed to set PWM1 pin");
-            return -EIO;
-        }
-        if (pwm_set_value(config->pwm2, in2)) {
-            LOG_WRN("Failed to set PWM2 pin");
-            return -EIO;
-        }
+    size_t ch_offset = chan * 2;
+    if (ch_offset + 1 > config->pwms_len) {
+        LOG_ERR("channel offset exceeds pwms length");
+        return -EIO;
     }
 
-    if (config->has_in1) {
-        if (gpio_pin_set_dt(&config->in1, in1)) {
-            LOG_WRN("Failed to set IN1 pin");
-            return -EIO;
-        }
+    if (pwm_set_value(config->pwms[ch_offset], in1)) {
+        LOG_WRN("Failed to set PWM 1 pin of ch: %d", chan);
+        return -EIO;
     }
-    if (config->has_in2) {
-        if (gpio_pin_set_dt(&config->in2, in2)) {
-            LOG_WRN("Failed to set IN2 pin");
-            return -EIO;
-        }
+    if (pwm_set_value(config->pwms[ch_offset + 1], in2)) {
+        LOG_WRN("Failed to set PWM 2 pin of ch: %d", chan);
+        return -EIO;
     }
 
     return 0;
@@ -148,22 +132,14 @@ static int drv883x_init(const struct device *dev) {
         }
     }
 
-    if (config->has_in1) {
-        if (gpio_pin_configure_dt(&config->in1, GPIO_OUTPUT_INACTIVE)) {
-            LOG_ERR("Failed to configure output in1 pin");
-            return -EIO;
-        }
-    }
-
-    if (config->has_in2) {
-        if (gpio_pin_configure_dt(&config->in2, GPIO_OUTPUT_INACTIVE)) {
-            LOG_ERR("Failed to configure output in2 pin");
-            return -EIO;
-        }
-    }
-
     enable_set_value(dev, 0);
     velocity_set_value(dev, 0, true);
+    if (config->pwms_len > 0) {
+        sync_set_value(dev, 0);
+    }
+    if (config->pwms_len > 2) {
+        sync_set_value(dev, 1);
+    }
 
     data->ready = true;
     return err;
@@ -205,6 +181,7 @@ static const struct sensor_driver_api drv883x_driver_api = {
     .attr_set = drv883x_attr_set,
 };
 
+#define GET_PWM_SPEC(n, prop, i) PWM_DT_SPEC_GET_BY_IDX(n, i)
 
 #define DRV883X_DEFINE(n)                                                      \
     static struct drv883x_data data##n;                                        \
@@ -216,31 +193,8 @@ static const struct sensor_driver_api drv883x_driver_api = {
                     DT_INST_NODE_HAS_PROP(n, enable_gpios),                    \
                     (GPIO_DT_SPEC_INST_GET(n, enable_gpios)),                  \
                     (NULL)),                                                   \
-        .has_pwms = COND_CODE_1(                                               \
-                      DT_INST_NODE_HAS_PROP(n, pwms),                          \
-                      (true), (false)),                                        \
-        .pwm1 = COND_CODE_1(                                                   \
-                  DT_INST_NODE_HAS_PROP(n, pwms),                              \
-                  (PWM_DT_SPEC_GET_BY_IDX(DT_DRV_INST(n), 0)),                 \
-                  (NULL)),                                                     \
-        .pwm2 = COND_CODE_1(                                                   \
-                  DT_INST_NODE_HAS_PROP(n, pwms),                              \
-                  (PWM_DT_SPEC_GET_BY_IDX(DT_DRV_INST(n), 1)),                 \
-                  (NULL)),                                                     \
-        .has_in1 = COND_CODE_1(                                                \
-                     DT_INST_NODE_HAS_PROP(n, in1_gpios),                      \
-                     (true), (false)),                                         \
-        .in1 = COND_CODE_1(                                                    \
-                 DT_INST_NODE_HAS_PROP(n, in1_gpios),                          \
-                 (GPIO_DT_SPEC_INST_GET(n, in1_gpios)),                        \
-                 (NULL)),                                                      \
-        .has_in2 = COND_CODE_1(                                                \
-                     DT_INST_NODE_HAS_PROP(n, in2_gpios),                      \
-                     (true), (false)),                                         \
-        .in2 = COND_CODE_1(                                                    \
-                 DT_INST_NODE_HAS_PROP(n, in2_gpios),                          \
-                 (GPIO_DT_SPEC_INST_GET(n, in2_gpios)),                        \
-                 (NULL)),                                                      \
+        .pwms_len = DT_INST_PROP_LEN(n, pwms),                                 \
+        .pwms = {DT_INST_FOREACH_PROP_ELEM_SEP(n, pwms, GET_PWM_SPEC, (, ))},  \
     };                                                                         \
     DEVICE_DT_INST_DEFINE(n, drv883x_init, DEVICE_DT_INST_GET(n),              \
                           &data##n, &config##n,                                \

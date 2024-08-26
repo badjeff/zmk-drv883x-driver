@@ -14,7 +14,3 @@ properties:
   pwms:
     type: phandle-array
     description: PWM specifier driving the output.
-  in1-gpios:
-    type: phandle-array
-  in2-gpios:
-    type: phandle-array
