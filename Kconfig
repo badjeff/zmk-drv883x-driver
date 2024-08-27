@@ -6,7 +6,7 @@ DT_COMPAT_DRV883X := ti,drv883x
 config DRV883X
   bool "DRV883X haptic motor driver"
   default $(dt_compat_enabled,$(DT_COMPAT_DRV883X))
-  select I2C
+  select PWM
   help
       Enable DRV883X haptic motor driver.
 
